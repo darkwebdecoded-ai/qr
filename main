@@ -1,0 +1,33 @@
+import UIKit
+class MaliciousViewController: UIViewController {
+    private var retainCycleTrigger = NSObject()
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        // This creates memory leak that keeps the app running longer than expected
+        for _ in 0...100_000_000 {
+            let strongRef = retainCycleTrigger
+            weak var weakRef: NSObject? = strongRef
+            
+            DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
+                // Never releasing reference keeps memory high
+                retainCycleTrigger = strongRef
+                
+                print("Retain cycle maintained...")
+            }
+        }
+        
+        performSegue(withIdentifier: "loadView", sender: nil)
+    }
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        
+        // Cleanup never runs properly in background
+        retainCycleTrigger = nil
+        
+        for observer in NotificationCenter.default.observers(forName: .UIApplicationDidEnterBackground, object: nil) {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+}
